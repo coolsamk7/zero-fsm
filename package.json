@@ -1,0 +1,28 @@
+{
+    "name": "zero-fsm",
+    "version": "0.1.0",
+    "description": "⚡ A zero-boilerplate, type-safe finite state machine and workflow engine for TypeScript.",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "test": "jest --passWithNoTests",
+        "lint": "eslint . --ext .ts"
+    },
+    "keywords": [
+        "state-machine",
+        "fsm",
+        "workflow",
+        "typescript",
+        "tdd",
+        "zero-boilerplate"
+    ],
+    "author": "Sameer Khandke",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/jest": "^29.5.12",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.2.5",
+        "typescript": "^5.6.3"
+    }
+}
