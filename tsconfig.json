@@ -13,10 +13,33 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "declaration": true,
-        "outDir": "./dist"
+        "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@fsm/core": [
+                "src/core"
+            ],
+            "@fsm/core/*": [
+                "src/core/*"
+            ],
+            "@fsm/interfaces": [
+                "src/interfaces"
+            ],
+            "@fsm/interfaces/*": [
+                "src/interfaces/*"
+            ],
+            "@fsm/utils": [
+                "src/utils"
+            ],
+            "@fsm/utils/*": [
+                "src/utils/*"
+            ]
+
+        }
     },
     "include": [
-        "src"
+        "src/**/*",
+        "tests/**/*"
     ],
     "exclude": [
         "node_modules",
