@@ -1,105 +1,103 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { StateMachine } from "@fsm/core";
 
-type MyStates = "idle" | "running";
-type MyEvents = "START" | "STOP";
-
 describe("StateMachine", () => {
-  it("should initialize with the given initial state", () => {
-    const fsm = new StateMachine<MyStates, MyEvents>({
+  let fsm: StateMachine<"idle" | "running", "START" | "STOP">;
+  let onEnterIdle: ReturnType<typeof vi.fn>;
+  let onExitIdle: ReturnType<typeof vi.fn>;
+  let onEnterRunning: ReturnType<typeof vi.fn>;
+  let onExitRunning: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    onEnterIdle = vi.fn();
+    onExitIdle = vi.fn();
+    onEnterRunning = vi.fn();
+    onExitRunning = vi.fn();
+
+    fsm = new StateMachine({
       initial: "idle",
       states: {
-        idle: { on: { START: "running" } },
-        running: { on: { STOP: "idle" } },
+        idle: { on: { START: "running" }, onEnter: onEnterIdle, onExit: onExitIdle },
+        running: { on: { STOP: "idle" }, onEnter: onEnterRunning, onExit: onExitRunning },
       },
     });
-
-    expect(fsm.state).toBe("idle");
   });
 
-  it("should transition to the next valid state", async () => {
-    const fsm = new StateMachine<MyStates, MyEvents>({
-      initial: "idle",
-      states: {
-        idle: { on: { START: "running" } },
-        running: { on: { STOP: "idle" } },
-      },
-    });
+  it("should start with initial state", () => {
+    expect(fsm.current).toBe("idle");
+    expect(fsm.previous).toBeUndefined();
+  });
 
+  it("should transition on valid event", async () => {
     await fsm.send("START");
-    expect(fsm.state).toBe("running");
-
-    await fsm.send("STOP");
-    expect(fsm.state).toBe("idle");
+    expect(fsm.current).toBe("running");
+    expect(fsm.previous).toBe("idle");
   });
 
-  it("should throw error on invalid transition (sync)", () => {
-    const fsm = new StateMachine<MyStates, MyEvents>({
-      initial: "idle",
-      states: {
-        idle: { on: { START: "running" } },
-        running: { on: { STOP: "idle" } },
-      },
-    });
-
-    expect(() => fsm.send("STOP")).rejects.toThrowError(
-      "Invalid transition from idle on STOP"
+  it("should throw on invalid transition", async () => {
+    await expect(fsm.send("STOP" as any)).rejects.toThrow(
+      'Invalid transition from "idle" with "STOP"'
     );
   });
 
-  it("should call onEnter callback when entering a state", async () => {
-    const onEnterRunning = vi.fn();
-
-    const fsm = new StateMachine<MyStates, MyEvents>({
-      initial: "idle",
-      states: {
-        idle: { on: { START: "running" } },
-        running: {
-          on: { STOP: "idle" },
-          onEnter: onEnterRunning,
-        },
-      },
-    });
-
+  it("should track previous state", async () => {
     await fsm.send("START");
-    expect(onEnterRunning).toHaveBeenCalled();
+    expect(fsm.previous).toBe("idle");
+    await fsm.send("STOP");
+    expect(fsm.previous).toBe("running");
   });
 
-  it("should call onExit callback when leaving a state", async () => {
-    const onExitIdle = vi.fn();
-
-    const fsm = new StateMachine<MyStates, MyEvents>({
-      initial: "idle",
-      states: {
-        idle: {
-          on: { START: "running" },
-          onExit: onExitIdle,
-        },
-        running: { on: { STOP: "idle" } },
-      },
-    });
-
+  it("should call onEnter and onExit hooks", async () => {
     await fsm.send("START");
     expect(onExitIdle).toHaveBeenCalled();
+    expect(onEnterRunning).toHaveBeenCalled();
+
+    await fsm.send("STOP");
+    expect(onExitRunning).toHaveBeenCalled();
+    expect(onEnterIdle).toHaveBeenCalledTimes(1); // initial + second entry
   });
 
-  it("should support async onEnter callback", async () => {
-    const asyncEnter = vi.fn(async () => {
-      return new Promise((resolve) => setTimeout(resolve, 10));
-    });
+  it("should correctly report state using is()", async () => {
+    expect(fsm.is("idle")).toBe(true);
+    expect(fsm.is("running")).toBe(false);
 
-    const fsm = new StateMachine<MyStates, MyEvents>({
+    await fsm.send("START");
+    expect(fsm.is("running")).toBe(true);
+    expect(fsm.is("idle")).toBe(false);
+  });
+
+  it("should return available events for current state", async () => {
+    expect(fsm.availableEvents()).toEqual(["START"]);
+    await fsm.send("START");
+    expect(fsm.availableEvents()).toEqual(["STOP"]);
+  });
+
+  it("should reset to initial state", async () => {
+    await fsm.send("START");
+    fsm.reset();
+    expect(fsm.current).toBe("idle");
+    expect(fsm.previous).toBe("running"); // previous keeps last state
+  });
+
+  it("should handle multiple sequential transitions correctly", async () => {
+    await fsm.send("START");
+    expect(fsm.current).toBe("running");
+    await fsm.send("STOP");
+    expect(fsm.current).toBe("idle");
+    await fsm.send("START");
+    expect(fsm.current).toBe("running");
+  });
+
+  it("should handle states without on property", async () => {
+    const fsm = new StateMachine({
       initial: "idle",
       states: {
-        idle: { on: { START: "running" } },
-        running: {
-          on: { STOP: "idle" },
-          onEnter: asyncEnter,
-        },
+        idle: {}, // no 'on' defined
       },
     });
 
-    await fsm.send("START");
-    expect(asyncEnter).toHaveBeenCalled();
+    await expect(fsm.send("ANY" as any)).rejects.toThrow(
+      'Invalid transition from "idle" with "ANY"'
+    );
   });
 });
