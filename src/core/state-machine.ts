@@ -1,35 +1,37 @@
-import { StateMachineConfig } from "@fsm/interfaces";
+import { StateMachineConfig } from "@fsm/types";
 
 export class StateMachine<TStates extends string, TEvents extends string> {
-    private current: TStates;
-    private config: StateMachineConfig<TStates, TEvents>;
+  private config: StateMachineConfig<TStates, TEvents>;
+  public current: TStates;
+  public previous?: TStates;
 
-    constructor(config: StateMachineConfig<TStates, TEvents>) {
-        this.config = config;
-        this.current = config.initial;
-    }
+  constructor(config: StateMachineConfig<TStates, TEvents>) {
+    this.config = config;
+    this.current = config.initial;
+  }
 
-    get state(): TStates {
-        return this.current;
-    }
+  async send(event: TEvents) {
+    const state = this.config.states[this.current];
+    const nextState = state.on?.[event];
+    if (!nextState) throw new Error(`Invalid transition from "${this.current}" with "${event}"`);
 
-    async send(event: TEvents): Promise<void> {
-        const stateDef = this.config.states[this.current];
-        const nextState = stateDef.on?.[event];
+    if (state.onExit) await state.onExit();
+    this.previous = this.current;
+    this.current = nextState;
+    const next = this.config.states[this.current];
+    if (next.onEnter) await next.onEnter();
+  }
 
-        if (!nextState) {
-            throw new Error(`Invalid transition from ${this.current} on ${event}`);
-        }
+  is(state: TStates) {
+    return this.current === state;
+  }
 
-        if (stateDef.onExit) {
-            await stateDef.onExit();
-        }
+  availableEvents(): TEvents[] {
+    return Object.keys(this.config.states[this.current].on || {}) as TEvents[];
+  }
 
-        this.current = nextState;
-
-        const nextDef = this.config.states[this.current];
-        if (nextDef.onEnter) {
-            await nextDef.onEnter();
-        }
-    }
+  reset() {
+    this.previous = this.current;
+    this.current = this.config.initial;
+  }
 }
