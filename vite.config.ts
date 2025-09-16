@@ -1,12 +1,18 @@
 import { defineConfig } from "vite";
-import path from "path"
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-    resolve: {
-        alias: {
-            "@utils": path.resolve(__dirname, "src/utils/*"),
-            "@core": path.resolve(__dirname, "src/core/*"),
-            "@interfaces": path.resolve(__dirname, "src/interfaces/*")
-        }
-    }
-})
+  plugins: [tsconfigPaths()],
+  test: {
+    globals: true,
+    environment: "node",
+    coverage: {
+      provider: "v8", // or "istanbul"
+      reporter: ["text", "json", "html"], // multiple reporters
+      reportsDirectory: "./coverage",
+      all: true, // include untested files too
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["node_modules/", "tests/"],
+    },
+  },
+});

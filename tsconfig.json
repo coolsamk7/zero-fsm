@@ -33,6 +33,12 @@
             ],
             "@fsm/utils/*": [
                 "src/utils/*"
+            ],
+            "@fsm/types": [
+                "src/types"
+            ],
+            "@fsm/types/*": [
+                "src/types/*"
             ]
 
         }
