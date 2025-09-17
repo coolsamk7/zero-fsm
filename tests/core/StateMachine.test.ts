@@ -100,4 +100,120 @@ describe("StateMachine", () => {
       'Invalid transition from "idle" with "ANY"'
     );
   });
+
+  it("should call onEnter hook when entering a state", async () => {
+    const onEnter = vi.fn();
+
+    const fsm = new StateMachine<"idle" | "running", "START">({
+      initial: "idle",
+      states: {
+        idle: { on: { START: "running" } },
+        running: { onEnter },
+      },
+    });
+
+    await fsm.send("START");
+
+    expect(onEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it("should call onExit hook when leaving a state", async () => {
+    const onExit = vi.fn();
+
+    const fsm = new StateMachine<"idle" | "running", "START">({
+      initial: "idle",
+      states: {
+        idle: { on: { START: "running" }, onExit },
+        running: {},
+      },
+    });
+
+    await fsm.send("START");
+
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("should call hooks in correct order (onExit → onEnter)", async () => {
+    const calls: string[] = [];
+    const onExit = vi.fn(() => calls.push("onExit"));
+    const onEnter = vi.fn(() => calls.push("onEnter"));
+
+    const fsm = new StateMachine<"idle" | "running", "START">({
+      initial: "idle",
+      states: {
+        idle: { on: { START: "running" }, onExit },
+        running: { onEnter },
+      },
+    });
+
+    await fsm.send("START");
+
+    expect(calls).toEqual(["onExit", "onEnter"]);
+  });
+
+  it("should support async onEnter and onExit hooks", async () => {
+    const calls: string[] = [];
+    const onExit = vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      calls.push("onExit");
+    });
+    const onEnter = vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      calls.push("onEnter");
+    });
+
+    const fsm = new StateMachine<"idle" | "running", "START">({
+      initial: "idle",
+      states: {
+        idle: { on: { START: "running" }, onExit },
+        running: { onEnter },
+      },
+    });
+
+    await fsm.send("START");
+
+    expect(calls).toEqual(["onExit", "onEnter"]);
+  });
+
+  it("should reset to initial state without calling onExit/onEnter", async () => {
+    const onEnterIdle = vi.fn();
+    const onExitIdle = vi.fn();
+    const onEnterLoading = vi.fn();
+    const onExitLoading = vi.fn();
+
+    const fsm = new StateMachine({
+      initial: "idle",
+      states: {
+        idle: {
+          on: { START: "loading" },
+          onEnter: onEnterIdle,
+          onExit: onExitIdle,
+        },
+        loading: {
+          on: { STOP: "idle" },
+          onEnter: onEnterLoading,
+          onExit: onExitLoading,
+        },
+      },
+    });
+
+    expect(fsm.current).toBe("idle");
+
+    // Transition to loading
+    await fsm.send("START");
+    expect(fsm.current).toBe("loading");
+    expect(onExitIdle).toHaveBeenCalledTimes(1);
+    expect(onEnterLoading).toHaveBeenCalledTimes(1);
+
+    // Reset back to initial state
+    fsm.reset();
+
+    expect(fsm.current).toBe("idle");
+
+    // Reset should NOT trigger hooks
+    expect(onExitLoading).toHaveBeenCalledTimes(0);
+  });
+
+
+
 });
