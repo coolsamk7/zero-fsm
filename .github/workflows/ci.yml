@@ -1,12 +1,4 @@
-
----
-
-## 🔹 Step 5: Setup GitHub Actions (CI/CD for Tests)
-Add `.github/workflows/ci.yml`:
-
-```yaml
 name: CI
-
 on:
   push:
     branches: [ "master" ]
